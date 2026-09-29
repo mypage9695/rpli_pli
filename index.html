@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Postal Life Insurance Comparison Tool (PLI & RPLI)</title>
+  <style>
+    html { overflow-y: scroll; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; padding: 20px 12px; background-color: #f1f5f9; color: #1e293b; }
+    .container { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { background: #b91c1c; color: #fff; padding: 14px 16px; text-align: center; }
+    .header h2 { margin: 0; font-size: 19px; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.3; }
+    .header p { margin: 4px 0 0; font-size: 13px; opacity: 0.9; }
+
+    .scheme-toggle { display: flex; justify-content: center; gap: 24px; padding: 14px; background: #fff1f2; border-bottom: 1px solid #fecaca; }
+    .scheme-toggle label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; color: #991b1b; cursor: pointer; }
+    .scheme-toggle input[type="radio"] { accent-color: #b91c1c; width: 16px; height: 16px; margin: 0; }
+
+    .form-section { padding: 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; flex-wrap: nowrap; gap: 8px; }
+    .form-group { flex: 1 1 0; min-width: 0; margin-bottom: 0; }
+    .form-group label { display: block; font-weight: 600; font-size: 11px; margin-bottom: 6px; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    select { width: 100%; padding: 8px 6px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #fff; color: #0f172a; outline: none; }
+    select:focus { border-color: #b91c1c; }
+
+    .table-section { padding: 16px; overflow-x: auto; }
+    .table-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1e293b; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+    th { background: #fee2e2; color: #991b1b; padding: 10px 8px; border: 1px solid #fecaca; }
+    td { padding: 9px 8px; border: 1px solid #e2e8f0; }
+    tr:nth-child(even) { background-color: #f8fafc; }
+    tr:hover { background-color: #f1f5f9; }
+    .highlight-prem { color: #b91c1c; font-weight: 700; }
+    .highlight-mat { color: #15803d; font-weight: 700; }
+
+    .disclaimer { font-size: 11px; color: #64748b; margin: 0 16px 16px; line-height: 1.4; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h2 id="portalHeading">Postal Life Insurance</h2>
+    <p id="portalSubheading">Endowment Assurance Plan (Santosh / Gram Santosh)</p>
+  </div>
+
+  <!-- Scheme Radio Selection -->
+  <div class="scheme-toggle">
+    <label>
+      <input type="radio" name="scheme" value="PLI" checked onchange="onSchemeChange()" />
+      PLI
+    </label>
+    <label>
+      <input type="radio" name="scheme" value="RPLI" onchange="onSchemeChange()" />
+      RPLI
+    </label>
+  </div>
+
+  <div class="form-section">
+    <div class="form-group">
+      <label for="entryAge">Age</label>
+      <select id="entryAge" onchange="renderTable()"></select>
+    </div>
+
+    <div class="form-group">
+      <label for="frequency">Frequency</label>
+      <select id="frequency" onchange="renderTable()">
+        <option value="monthly" selected>Monthly</option>
+        <option value="quarterly">Quarterly</option>
+        <option value="annual">Annual</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="sumAssured">Sum Assured</label>
+      <select id="sumAssured" onchange="renderTable()"></select>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <div class="table-title" id="tableHeader">Maturity Comparison for Selected Plan</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Maturity Age</th>
+          <th>Term</th>
+          <th id="premHeaderLabel">Monthly Premium</th>
+          <th>Est. Maturity Amount*</th>
+        </tr>
+      </thead>
+      <tbody id="plansTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="disclaimer" id="footerDisclaimer"></div>
+</div>
+
+<script>
+  const maturityAges = [35, 40, 45, 50, 55, 58, 60];
+
+  // RPLI Table IX (Base Rates per ₹1,000 Sum Assured)
+  const rpliRates = {
+    monthly: {
+      19: {35: 5.1,  40: 3.75, 45: 2.95, 50: 2.4,  55: 2.0,  58: 1.85, 60: 1.75},
+      20: {35: 5.45, 40: 3.95, 45: 3.1,  50: 2.5,  55: 2.05, 58: 1.9,  60: 1.8},
+      21: {35: 5.85, 40: 4.2,  45: 3.25, 50: 2.6,  55: 2.1,  58: 1.95, 60: 1.85},
+      22: {35: 6.35, 40: 4.45, 45: 3.4,  50: 2.7,  55: 2.2,  58: 2.0,  60: 1.9},
+      23: {35: 6.95, 40: 4.75, 45: 3.55, 50: 2.8,  55: 2.3,  58: 2.05, 60: 1.95},
+      24: {35: 7.6,  40: 5.1,  45: 3.75, 50: 2.95, 55: 2.4,  58: 2.15, 60: 2.0},
+      25: {35: 8.4,  40: 5.45, 45: 3.95, 50: 3.1,  55: 2.5,  58: 2.25, 60: 2.1},
+      26: {35: 9.4,  40: 5.85, 45: 4.2,  50: 3.25, 55: 2.6,  58: 2.35, 60: 2.2},
+      27: {35: 10.65,40: 6.35, 45: 4.45, 50: 3.4,  55: 2.7,  58: 2.45, 60: 2.3},
+      28: {35: 12.2, 40: 6.95, 45: 4.75, 50: 3.6,  55: 2.85, 58: 2.55, 60: 2.4},
+      29: {35: 14.3, 40: 7.6,  45: 5.1,  50: 3.8,  55: 3.0,  58: 2.65, 60: 2.5},
+      30: {35: 17.25,40: 8.4,  45: 5.5,  50: 4.0,  55: 3.15, 58: 2.75, 60: 2.6},
+      31: {          40: 9.4,  45: 5.9,  50: 4.25, 55: 3.3,  58: 2.9,  60: 2.7},
+      32: {          40: 10.65,45: 6.4,  50: 4.5,  55: 3.45, 58: 3.05, 60: 2.8},
+      33: {          40: 12.2, 45: 6.95, 50: 4.8,  55: 3.65, 58: 3.2,  60: 2.9},
+      34: {          40: 14.3, 45: 7.65, 50: 5.15, 55: 3.85, 58: 3.35, 60: 3.05},
+      35: {          40: 17.25,45: 8.45, 50: 5.5,  55: 4.05, 58: 3.5,  60: 3.2},
+      36: {                    45: 9.45, 50: 5.95, 55: 4.3,  58: 3.7,  60: 3.35},
+      37: {                    45: 10.65,50: 6.45, 55: 4.6,  58: 3.9,  60: 3.55},
+      38: {                    45: 12.25,50: 7.0,  55: 4.9,  58: 4.15, 60: 3.75},
+      39: {                    45: 14.35,50: 7.7,  55: 5.2,  58: 4.4,  60: 3.95},
+      40: {                    45: 17.3, 50: 8.5,  55: 5.6,  58: 4.65, 60: 4.2},
+      41: {                              50: 9.5,  55: 6.05, 58: 4.95, 60: 4.45},
+      42: {                              50: 10.75,55: 6.55, 58: 5.3,  60: 4.7},
+      43: {                              50: 12.35,55: 7.15, 58: 5.7,  60: 5.0},
+      44: {                              50: 14.45,55: 7.8,  58: 6.15, 60: 5.35},
+      45: {                              50: 17.4, 55: 8.65, 58: 6.65, 60: 5.75},
+      46: {                                        55: 9.65, 58: 7.25, 60: 6.2},
+      47: {                                        55: 10.9, 58: 7.95, 60: 6.75},
+      48: {                                        55: 12.5, 58: 8.75, 60: 7.3},
+      49: {                                        55: 14.6, 58: 9.75, 60: 8.0},
+      50: {                                        55: 17.55,58: 11.0, 60: 8.85},
+      51: {                                                  58: 13.06,60: 10.49},
+      52: {                                                  58: 15.07,60: 11.71},
+      53: {                                                  58: 17.84,60: 13.24},
+      54: {                                                            60: 15.25},
+      55: {                                                            60: 18.01}
+    },
+    quarterly: {
+      19: {35: 15.15, 40: 11.1,  45: 8.7,   50: 7.05,  55: 5.85, 58: 5.4,  60: 5.1},
+      20: {35: 16.2,  40: 11.7,  45: 9.15,  50: 7.35,  55: 6.00, 58: 5.55, 60: 5.25},
+      21: {35: 17.4,  40: 12.45, 45: 9.6,   50: 7.65,  55: 6.15, 58: 5.7,  60: 5.4},
+      22: {35: 18.9,  40: 13.2,  45: 10.05, 50: 7.95,  55: 6.45, 58: 5.85, 60: 5.55},
+      23: {35: 20.7,  40: 14.1,  45: 10.5,  50: 8.25,  55: 6.75, 58: 6.00, 60: 5.7},
+      24: {35: 22.65, 40: 15.15, 45: 11.1,  50: 8.7,   55: 7.05, 58: 6.3,  60: 5.85},
+      25: {35: 25.05, 40: 16.2,  45: 11.7,  50: 9.15,  55: 7.35, 58: 6.6,  60: 6.15},
+      26: {35: 28.05, 40: 17.4,  45: 12.45, 50: 9.6,   55: 7.65, 58: 6.9,  60: 6.45},
+      27: {35: 31.8,  40: 18.9,  45: 13.2,  50: 10.05, 55: 7.95, 58: 7.2,  60: 6.75},
+      28: {35: 36.45, 40: 20.7,  45: 14.1,  50: 10.65, 55: 8.4,  58: 7.5,  60: 7.05},
+      29: {35: 42.75, 40: 22.65, 45: 15.15, 50: 11.25, 55: 8.85, 58: 7.8,  60: 7.35},
+      30: {35: 51.6,  40: 25.05, 45: 16.2,  50: 11.85, 55: 9.3,  58: 8.1,  60: 7.65},
+      31: {          40: 28.05, 45: 17.55, 50: 12.6,  55: 9.75, 58: 8.55, 60: 7.95},
+      32: {          40: 31.8,  45: 19.05, 50: 13.35, 55: 10.2, 58: 9.00, 60: 8.25},
+      33: {          40: 36.45, 45: 20.7,  50: 14.25, 55: 10.8, 58: 9.45, 60: 8.55},
+      34: {          40: 42.75, 45: 22.8,  50: 15.3,  55: 11.4, 58: 9.9,  60: 9.00},
+      35: {          40: 51.6,  45: 25.2,  50: 16.35, 55: 12.0, 58: 10.35,60: 9.45},
+      36: {                     45: 28.2,  50: 17.7,  55: 12.75,58: 10.95,60: 9.9},
+      37: {                     45: 31.8,  50: 19.2,  55: 13.65,58: 11.55,60: 10.5},
+      38: {                     45: 36.6,  50: 20.85, 55: 14.55,58: 12.3, 60: 11.1},
+      39: {                     45: 42.9,  50: 22.95, 55: 15.45,58: 13.05,60: 11.7},
+      40: {                     45: 51.75, 50: 25.35, 55: 16.65,58: 13.8, 60: 12.45},
+      41: {                                50: 28.35, 55: 18.00, 58: 14.7, 60: 13.2},
+      42: {                                50: 32.1,  55: 19.5,  58: 15.75,60: 13.95},
+      43: {                                50: 36.9,  55: 21.3,  58: 16.95,60: 14.85},
+      44: {                                50: 43.2,  55: 23.25, 58: 18.3, 60: 15.9},
+      45: {                                50: 52.05, 55: 25.8,  58: 19.8, 60: 17.1},
+      46: {                                           55: 28.56, 58: 21.46,60: 18.35},
+      47: {                                           55: 32.26, 58: 23.53,60: 19.98},
+      48: {                                           55: 37.00, 58: 25.9, 60: 21.61},
+      49: {                                           55: 43.22, 58: 28.86,60: 23.68},
+      50: {                                           55: 51.95, 58: 32.56,60: 26.2},
+      51: {                                                      58: 38.66,60: 31.05},
+      52: {                                                      58: 44.61,60: 34.66},
+      53: {                                                      58: 52.81,60: 39.19},
+      54: {                                                                60: 45.14},
+      55: {                                                                60: 53.31}
+    },
+    annual: {
+      19: {35: 59.15, 40: 42.95, 45: 33.35, 50: 26.75, 55: 21.95, 58: 20.15, 60: 18.95},
+      20: {35: 63.35, 40: 45.35, 45: 35.15, 50: 27.95, 55: 22.55, 58: 20.75, 60: 19.55},
+      21: {35: 68.15, 40: 48.35, 45: 36.95, 50: 29.15, 55: 23.15, 58: 21.35, 60: 20.15},
+      22: {35: 74.15, 40: 51.35, 45: 38.75, 50: 30.35, 55: 24.35, 58: 21.95, 60: 20.75},
+      23: {35: 81.35, 40: 54.95, 45: 40.55, 50: 31.55, 55: 25.55, 58: 22.55, 60: 21.35},
+      24: {35: 89.15, 40: 59.15, 45: 42.95, 50: 33.35, 55: 26.75, 58: 23.75, 60: 21.95},
+      25: {35: 98.75, 40: 63.35, 45: 45.35, 50: 35.15, 55: 27.95, 58: 24.95, 60: 23.15},
+      26: {35: 110.75,40: 68.15, 45: 48.35, 50: 36.95, 55: 29.15, 58: 26.15, 60: 24.35},
+      27: {35: 125.75,40: 74.15, 45: 51.35, 50: 38.75, 55: 30.35, 58: 27.35, 60: 25.55},
+      28: {35: 144.35,40: 81.35, 45: 54.95, 50: 41.15, 55: 32.15, 58: 28.55, 60: 26.75},
+      29: {35: 169.55,40: 89.15, 45: 59.15, 50: 43.55, 55: 33.95, 58: 29.75, 60: 27.95},
+      30: {35: 204.95,40: 98.75, 45: 63.35, 50: 45.95, 55: 35.75, 58: 30.95, 60: 29.15},
+      31: {          40: 110.75,45: 68.75, 50: 48.95, 55: 37.55, 58: 32.75, 60: 30.35},
+      32: {          40: 125.75,45: 74.75, 50: 51.95, 55: 39.35, 58: 34.55, 60: 31.55},
+      33: {          40: 144.35,45: 81.35, 50: 55.55, 55: 41.75, 58: 36.35, 60: 32.75},
+      34: {          40: 169.55,45: 89.75, 50: 59.75, 55: 44.15, 58: 38.15, 60: 34.55},
+      35: {          40: 204.95,45: 99.35, 50: 63.95, 55: 46.55, 58: 39.95, 60: 36.55},
+      36: {                     45: 111.35,50: 69.35, 55: 49.55, 58: 42.35, 60: 38.15},
+      37: {                     45: 125.75,50: 75.35, 55: 53.15, 58: 44.75, 60: 40.55},
+      38: {                     45: 144.95,50: 81.95, 55: 56.75, 58: 47.75, 60: 42.95},
+      39: {                     45: 170.15,50: 90.35, 55: 60.35, 58: 50.75, 60: 45.35},
+      40: {                     45: 205.55,50: 99.95, 55: 65.15, 58: 53.75, 60: 48.35},
+      41: {                                50: 111.95,55: 70.55, 58: 57.35, 60: 51.35},
+      42: {                                50: 126.95,55: 76.55, 58: 61.55, 60: 54.35},
+      43: {                                50: 146.15,55: 83.75, 58: 66.35, 60: 57.95},
+      44: {                                50: 171.35,55: 91.55, 58: 71.75, 60: 62.15},
+      45: {                                50: 206.75,55: 101.75,58: 77.75, 60: 66.95},
+      46: {                                           55: 111.17,58: 83.52, 60: 71.42},
+      47: {                                           55: 125.57,58: 91.58, 60: 77.76},
+      48: {                                           55: 144.0, 58: 100.8, 60: 84.1},
+      49: {                                           55: 168.19,58: 112.32,60: 92.16},
+      50: {                                           55: 202.18,58: 126.72,60: 101.95},
+      51: {                                                      58: 150.45,60: 120.84},
+      52: {                                                      58: 173.61,60: 134.9},
+      53: {                                                      58: 205.52,60: 152.52},
+      54: {                                                                60: 175.68},
+      55: {                                                                60: 207.48}
+    }
+  };
+
+  // PLI Table II / II-A / II-C (Base Rates per ₹5,000 Sum Assured)
+  const pliRates = {
+    monthly: {
+      19: {35: 26, 40: 19, 45: 15, 50: 12, 55: 10, 58: 9,  60: 9},
+      20: {35: 27, 40: 20, 45: 16, 50: 13, 55: 10, 58: 10, 60: 9},
+      21: {35: 29, 40: 21, 45: 16, 50: 13, 55: 11, 58: 10, 60: 9},
+      22: {35: 32, 40: 22, 45: 17, 50: 14, 55: 11, 58: 10, 60: 10},
+      23: {35: 35, 40: 24, 45: 18, 50: 14, 55: 12, 58: 10, 60: 10},
+      24: {35: 38, 40: 26, 45: 19, 50: 15, 55: 12, 58: 11, 60: 10},
+      25: {35: 42, 40: 27, 45: 20, 50: 16, 55: 13, 58: 11, 60: 11},
+      26: {35: 47, 40: 29, 45: 21, 50: 16, 55: 13, 58: 12, 60: 11},
+      27: {35: 53, 40: 32, 45: 22, 50: 17, 55: 14, 58: 12, 60: 12},
+      28: {35: 61, 40: 35, 45: 24, 50: 18, 55: 14, 58: 13, 60: 12},
+      29: {35: 72, 40: 38, 45: 26, 50: 19, 55: 15, 58: 13, 60: 13},
+      30: {35: 86, 40: 42, 45: 28, 50: 20, 55: 16, 58: 14, 60: 13},
+      31: {          40: 47, 45: 30, 50: 21, 55: 17, 58: 15, 60: 14},
+      32: {          40: 53, 45: 32, 50: 23, 55: 17, 58: 15, 60: 14},
+      33: {          40: 61, 45: 35, 50: 24, 55: 18, 58: 16, 60: 15},
+      34: {          40: 72, 45: 38, 50: 26, 55: 19, 58: 17, 60: 15},
+      35: {          40: 86, 45: 42, 50: 28, 55: 20, 58: 18, 60: 16},
+      36: {                    45: 47, 50: 30, 55: 22, 58: 19, 60: 17},
+      37: {                    45: 53, 50: 32, 55: 23, 58: 20, 60: 18},
+      38: {                    45: 61, 50: 35, 55: 25, 58: 21, 60: 19},
+      39: {                    45: 72, 50: 39, 55: 26, 58: 22, 60: 20},
+      40: {                    45: 87, 50: 43, 55: 28, 58: 23, 60: 21},
+      41: {                              50: 48, 55: 30, 58: 25, 60: 22},
+      42: {                              50: 54, 55: 33, 58: 27, 60: 24},
+      43: {                              50: 62, 55: 36, 58: 29, 60: 25},
+      44: {                              50: 72, 55: 39, 58: 31, 60: 27},
+      45: {                              50: 87, 55: 43, 58: 33, 60: 29},
+      46: {                                        55: 48, 58: 36, 60: 31},
+      47: {                                        55: 55, 58: 40, 60: 34},
+      48: {                                        55: 63, 58: 44, 60: 37},
+      49: {                                        55: 73, 58: 49, 60: 40},
+      50: {                                        55: 88, 58: 55, 60: 44},
+      51: {                                                  58: 65, 60: 52},
+      52: {                                                  58: 75, 60: 59},
+      53: {                                                  58: 89, 60: 66},
+      54: {                                                            60: 76},
+      55: {                                                            60: 90}
+    },
+    quarterly: {
+      19: {35: 77.90, 40: 56.90, 45: 44.90, 50: 36.00, 55: 30.00, 58: 27.00, 60: 27.00},
+      20: {35: 80.80, 40: 59.90, 45: 47.90, 50: 39.00, 55: 30.00, 58: 30.00, 60: 27.00},
+      21: {35: 86.80, 40: 62.90, 45: 47.90, 50: 39.00, 55: 33.00, 58: 30.00, 60: 27.00},
+      22: {35: 95.80, 40: 65.90, 45: 50.90, 50: 41.90, 55: 33.00, 58: 30.00, 60: 30.00},
+      23: {35: 104.80,40: 71.90, 45: 53.90, 50: 41.90, 55: 36.00, 58: 30.00, 60: 30.00},
+      24: {35: 113.80,40: 77.90, 45: 56.90, 50: 44.90, 55: 36.00, 58: 33.00, 60: 30.00},
+      25: {35: 125.70,40: 80.80, 45: 59.90, 50: 47.90, 55: 39.00, 58: 33.00, 60: 33.00},
+      26: {35: 140.70,40: 86.80, 45: 62.90, 50: 47.90, 55: 39.00, 58: 33.00, 60: 36.00},
+      27: {35: 158.70,40: 95.80, 45: 65.90, 50: 50.90, 55: 41.90, 58: 36.00, 60: 36.00},
+      28: {35: 182.60,40: 104.80,45: 71.90, 50: 53.90, 55: 41.90, 58: 39.00, 60: 36.00},
+      29: {35: 215.50,40: 113.80,45: 77.90, 50: 56.90, 55: 44.90, 58: 39.00, 60: 39.00},
+      30: {35: 257.40,40: 125.70,45: 83.80, 50: 59.90, 55: 47.90, 58: 39.00, 60: 41.90},
+      31: {          40: 140.70,45: 89.80, 50: 62.90, 55: 50.90, 58: 41.90, 60: 44.90},
+      32: {          40: 158.70,45: 95.80, 50: 68.90, 55: 50.90, 58: 44.90, 60: 41.90},
+      33: {          40: 182.60,45: 104.80,50: 71.90, 55: 53.90, 58: 44.90, 60: 47.90},
+      34: {          40: 215.50,45: 113.80,50: 77.90, 55: 56.90, 58: 44.90, 60: 50.90},
+      35: {          40: 257.40,45: 125.70,50: 83.80, 55: 59.90, 58: 47.90, 60: 53.90},
+      36: {                     45: 140.70,50: 89.80, 55: 65.90, 58: 50.90, 60: 56.90},
+      37: {                     45: 158.70,50: 95.80, 55: 68.90, 58: 59.90, 60: 53.90},
+      38: {                     45: 182.60,50: 104.80,55: 74.90, 58: 56.90, 60: 62.90},
+      39: {                     45: 215.50,50: 116.80,55: 77.90, 58: 65.90, 60: 59.90},
+      40: {                     45: 260.40,50: 128.70,55: 83.80, 58: 68.90, 60: 62.90},
+      41: {                                50: 143.70,55: 89.80, 58: 65.90, 60: 74.90},
+      42: {                                50: 161.60,55: 98.80, 58: 80.80, 60: 71.90},
+      43: {                                50: 185.60,55: 107.80,58: 74.90, 60: 86.80},
+      44: {                                50: 215.50,55: 116.80,58: 92.80, 60: 80.80},
+      45: {                                50: 260.40,55: 128.70,58: 98.80, 60: 86.80},
+      46: {                                           55: 143.70,58: 107.80,60: 92.80},
+      47: {                                           55: 164.60,58: 119.80,60: 101.80},
+      48: {                                           55: 188.60,58: 131.70,60: 110.80},
+      49: {                                           55: 218.50,58: 146.70,60: 119.80},
+      50: {                                           55: 263.40,58: 164.60,60: 131.70},
+      51: {                                                      58: 194.60,60: 155.70},
+      52: {                                                      58: 224.50,60: 176.60},
+      53: {                                                      58: 266.40,60: 197.60},
+      54: {                                                                60: 227.50},
+      55: {                                                                60: 269.40}
+    },
+    annual: {
+      19: {35: 302.70, 40: 221.20, 45: 174.70, 50: 139.70, 55: 116.50, 58: 104.80, 60: 104.80},
+      20: {35: 314.30, 40: 232.90, 45: 186.30, 50: 151.40, 55: 116.50, 58: 116.50, 60: 104.80},
+      21: {35: 337.60, 40: 244.50, 45: 186.30, 50: 151.40, 55: 128.10, 58: 116.50, 60: 104.80},
+      22: {35: 372.50, 40: 256.10, 45: 197.90, 50: 163.00, 55: 128.10, 58: 116.50, 60: 116.50},
+      23: {35: 407.50, 40: 279.40, 45: 209.60, 50: 163.00, 55: 139.70, 58: 116.50, 60: 116.50},
+      24: {35: 442.40, 40: 302.70, 45: 221.20, 50: 174.70, 55: 139.70, 58: 128.10, 60: 116.50},
+      25: {35: 488.90, 40: 314.30, 45: 232.90, 50: 186.30, 55: 151.40, 58: 128.10, 60: 128.10},
+      26: {35: 547.10, 40: 337.60, 45: 244.50, 50: 186.30, 55: 151.40, 58: 139.70, 60: 128.10},
+      27: {35: 617.00, 40: 372.50, 45: 256.10, 50: 197.90, 55: 163.00, 58: 139.70, 60: 139.70},
+      28: {35: 710.10, 40: 407.50, 45: 279.40, 50: 209.60, 55: 163.00, 58: 151.40, 60: 139.70},
+      29: {35: 838.10, 40: 442.40, 45: 302.70, 50: 221.20, 55: 174.70, 58: 151.40, 60: 151.40},
+      30: {35: 1001.10,40: 488.90, 45: 326.00, 50: 232.90, 55: 186.30, 58: 163.00, 60: 151.40},
+      31: {          40: 547.10, 45: 349.30, 50: 244.50, 55: 197.90, 58: 174.70, 60: 163.00},
+      32: {          40: 617.00, 45: 372.50, 50: 267.80, 55: 197.90, 58: 174.70, 60: 163.00},
+      33: {          40: 710.10, 45: 407.50, 50: 279.40, 55: 209.60, 58: 186.30, 60: 174.70},
+      34: {          40: 838.10, 45: 442.40, 50: 302.70, 55: 221.20, 58: 197.90, 60: 174.70},
+      35: {          40: 1001.10,45: 488.90, 50: 326.00, 55: 232.90, 58: 209.60, 60: 186.30},
+      36: {                     45: 547.10, 50: 349.30, 55: 256.10, 58: 221.20, 60: 197.90},
+      37: {                     45: 617.00, 50: 372.50, 55: 267.80, 58: 232.90, 60: 209.60},
+      38: {                     45: 710.10, 50: 407.50, 55: 291.10, 58: 244.50, 60: 221.20},
+      39: {                     45: 838.10, 50: 454.00, 55: 302.70, 58: 256.10, 60: 232.90},
+      40: {                     45: 1012.70,50: 500.60, 55: 326.00, 58: 267.80, 60: 244.50},
+      41: {                                50: 558.80, 55: 349.30, 58: 291.10, 60: 256.10},
+      42: {                                50: 628.60, 55: 384.20, 58: 314.30, 60: 279.40},
+      43: {                                50: 721.70, 55: 419.10, 58: 337.60, 60: 291.10},
+      44: {                                50: 838.10, 55: 454.00, 58: 360.90, 60: 314.30},
+      45: {                                50: 1012.70,55: 500.60, 58: 384.20, 60: 337.60},
+      46: {                                           55: 558.80, 58: 419.10, 60: 360.90},
+      47: {                                           55: 640.30, 58: 465.70, 60: 395.80},
+      48: {                                           55: 733.40, 58: 512.20, 60: 430.70},
+      49: {                                           55: 849.80, 58: 570.40, 60: 465.70},
+      50: {                                           55: 1024.40,58: 640.30, 60: 512.20},
+      51: {                                                      58: 756.70, 60: 605.30},
+      52: {                                                      58: 873.10, 60: 686.80},
+      53: {                                                      58: 1036.00,60: 768.30},
+      54: {                                                                60: 884.70},
+      55: {                                                                60: 1047.70}
+    }
+  };
+
+  const schemeConfig = {
+    PLI: {
+      name: "Postal Life Insurance",
+      plan: "Endowment Assurance (Santosh - Table II)",
+      baseUnit: 5000,
+      annualBonusPerThousand: 52,
+      sumOptions: [
+        { val: 25000, label: "₹25k" },
+        { val: 50000, label: "₹50k" },
+        { val: 100000, label: "₹1 Lakh" },
+        { val: 200000, label: "₹2 Lakh" },
+        { val: 300000, label: "₹3 Lakh" },
+        { val: 400000, label: "₹4 Lakh" },
+        { val: 500000, label: "₹5 Lakh", selected: true },
+        { val: 1000000, label: "₹10 Lakh" }
+      ],
+      rates: pliRates,
+      disclaimer: "* Premiums are calculated directly from official PLI Table II / II-A / II-C (Base per ₹5,000 Sum Assured) and rounded up to the nearest rupee.<br/>* Maturity includes estimated simple reversionary bonus (~₹52 per ₹1,000 SA/yr). GST is excluded."
+    },
+    RPLI: {
+      name: "Rural Postal Life Insurance",
+      plan: "Endowment Assurance (Gram Santosh - Table IX)",
+      baseUnit: 1000,
+      annualBonusPerThousand: 48,
+      sumOptions: [
+        { val: 25000, label: "₹25k" },
+        { val: 50000, label: "₹50k" },
+        { val: 100000, label: "₹1 Lakh" },
+        { val: 200000, label: "₹2 Lakh" },
+        { val: 300000, label: "₹3 Lakh" },
+        { val: 400000, label: "₹4 Lakh" },
+        { val: 500000, label: "₹5 Lakh", selected: true },
+        { val: 1000000, label: "₹10 Lakh" }
+      ],
+      rates: rpliRates,
+      disclaimer: "* Premiums are mapped exactly from official RPLI Table IX (Base per ₹1,000 Sum Assured) and rounded up to the nearest rupee.<br/>* Maturity includes estimated accumulated bonuses (~₹48 per ₹1,000 SA/yr). GST is excluded."
+    }
+  };
+
+  function getSelectedScheme() {
+    return document.querySelector('input[name="scheme"]:checked').value;
+  }
+
+  function formatRupees(num) {
+    return '₹' + Number(Math.ceil(num)).toLocaleString('en-IN');
+  }
+
+  function initAgeDropdown() {
+    const select = document.getElementById('entryAge');
+    const prevAge = select.value ? parseInt(select.value, 10) : 30;
+    select.innerHTML = '';
+    for (let age = 19; age <= 55; age++) {
+      const opt = document.createElement('option');
+      opt.value = age;
+      opt.textContent = `${age} Yrs`;
+      if (age === prevAge) opt.selected = true;
+      select.appendChild(opt);
+    }
+  }
+
+  function populateSumAssuredDropdown(schemeKey) {
+    const select = document.getElementById('sumAssured');
+    const prevVal = parseInt(select.value, 10);
+    select.innerHTML = '';
+    
+    const config = schemeConfig[schemeKey];
+    config.sumOptions.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.val;
+      opt.textContent = item.label;
+      if (prevVal ? item.val === prevVal : item.selected) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    });
+
+    if (!select.value && select.options.length > 0) {
+      select.selectedIndex = 0;
+    }
+  }
+
+  function onSchemeChange() {
+    const schemeKey = getSelectedScheme();
+    const config = schemeConfig[schemeKey];
+
+    document.getElementById('portalHeading').innerText = config.name;
+    document.getElementById('portalSubheading').innerText = config.plan;
+    document.getElementById('footerDisclaimer').innerHTML = config.disclaimer;
+
+    populateSumAssuredDropdown(schemeKey);
+    renderTable();
+  }
+
+  function renderTable() {
+    const schemeKey = getSelectedScheme();
+    const config = schemeConfig[schemeKey];
+    const entryAge = parseInt(document.getElementById('entryAge').value, 10);
+    const sumAssured = parseInt(document.getElementById('sumAssured').value, 10);
+    const frequency = document.getElementById('frequency').value;
+
+    document.getElementById('premHeaderLabel').innerText = 
+      frequency.charAt(0).toUpperCase() + frequency.slice(1) + ' Premium';
+
+    document.getElementById('tableHeader').innerText = 
+      `${schemeKey} - ${config.plan} (Age: ${entryAge} | SA: ${formatRupees(sumAssured)})`;
+
+    const tbody = document.getElementById('plansTableBody');
+    tbody.innerHTML = '';
+
+    const rateTable = config.rates[frequency] || {};
+    const ageRates = rateTable[entryAge];
+
+    if (!ageRates) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color: #b91c1c; padding: 20px;">No plan entries available for age ${entryAge}</td></tr>`;
+      return;
+    }
+
+    maturityAges.forEach(mAge => {
+      if (mAge > entryAge && ageRates[mAge] !== undefined) {
+        const term = mAge - entryAge;
+        const ratePerUnit = ageRates[mAge];
+        
+        const premium = Math.ceil((sumAssured / config.baseUnit) * ratePerUnit);
+        const totalBonus = (sumAssured / 1000) * config.annualBonusPerThousand * term;
+        const estimatedMaturity = sumAssured + totalBonus;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${mAge} Yrs</strong></td>
+          <td>${term} Yrs</td>
+          <td class="highlight-prem">${formatRupees(premium)}</td>
+          <td class="highlight-mat">${formatRupees(estimatedMaturity)}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    });
+  }
+
+  window.onload = function() {
+    initAgeDropdown();
+    onSchemeChange();
+  };
+</script>
+
+</body>
+</html>
